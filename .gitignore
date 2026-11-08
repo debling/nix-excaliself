@@ -1,0 +1,4 @@
+# Local clone kept for reference; the flake packages the upstream release tag.
+/excaliself/
+/result
+*.qcow2

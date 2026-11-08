@@ -1,0 +1,45 @@
+{
+  "nodes": {
+    "excaliself": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794050817,
+        "narHash": "sha256-P9qowjFoF90HkhkfBKoiWVDutoUWLsgMivrB+dsxELc=",
+        "owner": "maciekzygmunt",
+        "repo": "excaliself",
+        "rev": "318d4d4b6a18d11c2d342ef668f3585e6e4bd708",
+        "type": "github"
+      },
+      "original": {
+        "owner": "maciekzygmunt",
+        "ref": "v0.9.0",
+        "repo": "excaliself",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1793876309,
+        "narHash": "sha256-Wojg9lIH/hDH91iDVH2/EPw8oDSpxjxhXONbU1yf4Zg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f9a75f41be3a74eab55d3a7679d34ad6cc0da977",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "excaliself": "excaliself",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
