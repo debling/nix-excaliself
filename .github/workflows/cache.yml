@@ -16,8 +16,21 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@v23
         with:
-          # GitHub runners have it; act containers do not.
+          # act containers run as root without systemd; GitHub's multi-user
+          # runners install the nix daemon regardless.
           init: none
+
+      - name: Wait for the nix daemon
+        run: |
+          for i in $(seq 1 60); do
+            if nix store ping >/dev/null 2>&1; then
+              echo "nix daemon is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "The nix daemon did not come up in time" >&2
+          exit 1
 
       - name: Build package
         run: nix build ".#packages.x86_64-linux.default" --out-link pkg
@@ -52,6 +65,18 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@v23
         with:
           init: none
+
+      - name: Wait for the nix daemon
+        run: |
+          for i in $(seq 1 60); do
+            if nix store ping >/dev/null 2>&1; then
+              echo "nix daemon is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "The nix daemon did not come up in time" >&2
+          exit 1
 
       - name: Build package
         run: nix build ".#packages.aarch64-linux.default" --out-link pkg
