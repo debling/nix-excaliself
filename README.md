@@ -9,20 +9,8 @@ MIT, currently v0.9.0). You get a package, a NixOS module, and a throwaway demo 
 From the repo root, on a Linux machine:
 
 ```bash
-nix run .#demo-vm
+nix run github:debling/nix-excaliself#demo-vm
 ```
-
-A NixOS VM (~2 GB RAM) boots and prints its log in your terminal, ending at a root
-shell. PostgreSQL, migrations and the auth secret are all automatic — nothing to
-configure. Open http://localhost:3000 in your host browser and sign up.
-
-- Needs Nix with flakes enabled, on Linux. The VM uses KVM when available;
-  without it, it falls back to software emulation and boots slowly.
-- Host port 3000 must be free — the VM forwards it to 127.0.0.1:3000.
-- Quit with `Ctrl-A x`.
-- The VM is stateless: no disk, every run starts pristine. Quitting destroys
-  all boards and accounts.
-- `nix build .#demo-vm` builds the VM without booting it.
 
 ## NixOS module
 
@@ -37,13 +25,7 @@ configure. Open http://localhost:3000 in your host browser and sign up.
       modules = [
         excaliself.nixosModules.default
         {
-          services.excaliself = {
-            enable = true;
-            nginx.domain = "draw.example.com"; # ACME cert + websocket-ready proxy
-            baseUrl = "https://draw.example.com";
-          };
-          security.acme.acceptTerms = true; # nginx.enableACME defaults to true
-          security.acme.defaults.email = "you@example.com";
+          services.excaliself.enable = true;
         }
       ];
     };
@@ -53,38 +35,54 @@ configure. Open http://localhost:3000 in your host browser and sign up.
 
 That's it. Local PostgreSQL is provisioned, migrations run on boot, and
 `BETTER_AUTH_SECRET` is generated on first boot (or point `authSecretFile` at
-your own).
+your own). The app listens on `http://localhost:3000`.
 
 Options that matter:
 
-- `databaseUrl` — `"local"` (default; provisions local PostgreSQL over its unix
+- `databaseUrl`: `"local"` (default; provisions local PostgreSQL over its unix
   socket) or a full `postgres://…` URL. Put `DATABASE_URL` in `environmentFile`
   to keep credentials out of the Nix store.
-- `environmentFile` — systemd EnvironmentFile for secrets (SSO client secrets,
+- `environmentFile`: systemd EnvironmentFile for secrets (SSO client secrets,
   `DATABASE_URL`).
-- `extraEnvironment` — plain env vars, e.g. `GOOGLE_CLIENT_ID`,
-  `SSO_ALLOWED_DOMAINS`. Single sign-on is just the app's env vars — see the
+- `extraEnvironment`:  plain env vars, e.g. `GOOGLE_CLIENT_ID`,
+  `SSO_ALLOWED_DOMAINS`. Single sign-on is just the app's env vars, see the
   [upstream SSO docs](https://excaliself.com/docs/single-sign-on/).
-- `authSecretFile` — defaults to `/var/lib/excaliself/auth-secret`,
-  auto-generated.
-- `port` (3000), `host` (`127.0.0.1`; nginx proxies locally), `package`
-  (defaults to this flake's package).
-- `nginx.forceSSL` / `nginx.enableACME` — both default to `true`; ACME needs
-  the two `security.acme` lines above.
+- `authSecretFile`: defaults to `/var/lib/excaliself/auth-secret`,
+  auto-generated if not supplied.
 
-The service runs as its own user with `ProtectSystem=strict`, `ProtectHome`,
-`PrivateTmp` and `NoNewPrivileges`.
 
-## Binary cache
+## Reverse proxy, TLS and single sign-on
 
-Speeds up cold machines and CI by ~2 minutes of building: run `cachix use nix-excaliself` first (needs a free [cachix.org](https://cachix.org) account). The cache is filled from CI on every release tag.
+Point nginx at the service, websocket upgrades keep drawing sessions alive:
 
-## Package only
+```nix
+services.nginx.virtualHosts."draw.example.com" = {
+  forceSSL = true;
+  enableACME = true;
+  locations."/" = {
+    proxyPass = "http://127.0.0.1:3000";
+    proxyWebsockets = true; # needed collaborative drawing
+    extraConfig = "proxy_read_timeout 300s;";
+  };
+};
+security.acme.acceptTerms = true;
+security.acme.defaults.email = "you@example.com";
 
-Not on NixOS? `nix build .#` builds the app (`result/bin/excaliself`); bring
-your own PostgreSQL, `DATABASE_URL` and `BETTER_AUTH_SECRET` (min 32 chars).
-`nix flake check` runs a NixOS VM test that boots the module and expects a 200
-from `/api/health`.
+services.excaliself = {
+  baseUrl = "https://draw.example.com";
+  extraEnvironment = {
+    GOOGLE_CLIENT_ID = "…";
+    SSO_ALLOWED_DOMAINS = "example.com";
+  };
+  # put sensive credentials like GOOGLE_CLIENT_SECRET=...
+  # checkout agenix or nix-sops to have those secrets be stored in a secure
+  # manner inside your config
+  environmentFile = "/run/secrets/excaliself";
+};
+```
+
+Microsoft and others OIDC providers are configured the same way, with their own env
+vars, see the [upstream SSO docs](https://excaliself.com/docs/single-sign-on/).
 
 ## License
 

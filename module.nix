@@ -95,61 +95,20 @@ in
         {option}`databaseUrl`.
       '';
     };
-
-    nginx = lib.mkOption {
-      description = ''
-        Reverse-proxy the app through nginx at a public domain. Configures
-        websocket upgrades, so the collaborative drawing works.
-      '';
-      default = null;
-      type = lib.types.nullOr (
-        lib.types.submodule {
-          options = {
-            domain = lib.mkOption {
-              type = lib.types.str;
-              description = "Domain to serve the app under, e.g. draw.example.com.";
-            };
-            forceSSL = lib.mkOption {
-              type = lib.types.bool;
-              default = true;
-              description = "Redirect HTTP traffic to HTTPS.";
-            };
-            enableACME = lib.mkOption {
-              type = lib.types.bool;
-              default = true;
-              description = "Request an ACME certificate for the domain (requires {option}`security.acme.email` to be set).";
-            };
-          };
-        }
-      );
-    };
   };
 
   config = lib.mkIf cfg.enable {
-    assertions =
-      [ ]
-      ++ lib.optionals (cfg.databaseUrl == "local") [
-        {
-          assertion = cfg.user == "excaliself";
-          message = ''
-            services.excaliself.databaseUrl = "local" requires
-            services.excaliself.user to stay "excaliself": the PostgreSQL
-            role/database is provisioned under that name and matched by peer
-            authentication. Set an explicit databaseUrl for a custom user.
-          '';
-        }
-      ]
-      ++ lib.optionals (cfg.nginx != null && cfg.nginx.enableACME) [
-        {
-          assertion = config.security.acme.defaults.email != null;
-          message = ''
-            services.excaliself.nginx.enableACME also needs
-            security.acme.acceptTerms = true and an email
-            (security.acme.defaults.email, or a per-cert
-            security.acme.certs.<domain>.email).
-          '';
-        }
-      ];
+    assertions = lib.optionals (cfg.databaseUrl == "local") [
+      {
+        assertion = cfg.user == "excaliself";
+        message = ''
+          services.excaliself.databaseUrl = "local" requires
+          services.excaliself.user to stay "excaliself": the PostgreSQL
+          role/database is provisioned under that name and matched by peer
+          authentication. Set an explicit databaseUrl for a custom user.
+        '';
+      }
+    ];
 
     users.users = lib.optionalAttrs (cfg.user == "excaliself") {
       excaliself = {
@@ -173,19 +132,6 @@ in
           ensureDBOwnership = true;
         }
       ];
-    };
-
-    services.nginx = lib.mkIf (cfg.nginx != null) {
-      enable = true;
-      virtualHosts.${cfg.nginx.domain} = {
-        forceSSL = cfg.nginx.forceSSL;
-        enableACME = cfg.nginx.enableACME;
-        locations."/" = {
-          proxyPass = "http://${cfg.host}:${toString cfg.port}";
-          proxyWebsockets = true;
-          extraConfig = "proxy_read_timeout 300s;";
-        };
-      };
     };
 
     systemd.services.excaliself = {

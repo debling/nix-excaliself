@@ -1,15 +1,8 @@
-# Pushes this flake's own derivations to the cachix binary cache on release
-# tags. cache.nixos.org already serves everything from nixpkgs; we only add the
-# site-specific tail: the package build, the VM closures, and the NixOS
-# system-config paths no other cache serves (~115 MB of NARs, measured).
-#
-# Action pair is the one proven in debling/nix-penpot: cachix/install-nix-action
-# brings up the nix daemon reliably on both runner generations, and
-# cachix/cachix-action pushes whatever the job built.
 name: Cache
 on:
   push:
-    tags: [ "v*" ]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
